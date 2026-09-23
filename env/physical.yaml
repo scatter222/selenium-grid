@@ -1,0 +1,62 @@
+# Environment: physical kit. Non-secret values only -- secrets are named by *_env keys
+# and read from environment variables at runtime. See env/schema.md.
+# Every environment file must have exactly the same keys (tests/unit enforces it).
+name: physical
+
+grid:
+  hub_url: http://selenium-hub.mgmt.physical.kit.lab:4444
+  expected_slots:
+    firefox: 2
+
+browser:
+  name: firefox
+  version: "128.0"          # Firefox ESR on the laptop image; "" accepts any version
+  platform: linux
+  headless: false
+  capture_console: true     # needs WebDriver BiDi through the Grid
+  accept_insecure_certs: false
+
+timeouts:
+  page_load: 45
+  element: 15
+  health_request: 5
+  health_total: 900
+  grid_command: 120
+
+tls:
+  verify: true
+  ca_bundle: null           # null = system trust store (internal CA installed on runner)
+
+network:
+  use_env_proxy: false      # runner reaches the kit directly on the management network
+
+idp:
+  base_url: https://auth.physical.kit.lab
+  realm: harness
+  entry_app: app_one        # login flow starts at this app and is redirected to the IdP
+  health_path: /realms/harness/.well-known/openid-configuration
+  cookie_landing_path: /realms/harness/.well-known/openid-configuration  # must be under the realm cookie path
+
+vyos:
+  api_url: https://vyos.mgmt.physical.kit.lab
+  api_key_env: HARNESS_VYOS_API_KEY
+
+apps:
+  app_one:
+    base_url: https://app-one.physical.kit.lab
+    health_path: /healthz
+    cookie_landing_path: /favicon.ico
+
+users:
+  standard:
+    username: harness.standard
+    role: user
+    password_env: HARNESS_STANDARD_PASSWORD
+    totp_seed_env: HARNESS_STANDARD_TOTP_SEED
+  admin:
+    username: harness.admin
+    role: admin
+    password_env: HARNESS_ADMIN_PASSWORD
+    totp_seed_env: HARNESS_ADMIN_TOTP_SEED
+
+default_user: standard

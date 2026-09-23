@@ -1,0 +1,117 @@
+# Selenium harness pipeline against the vCenter ("virtual") kit.
+#
+# Secrets come from masked, protected CI/CD variables (Settings > CI/CD > Variables),
+# never from this file or env/*.yaml:
+#   HARNESS_VYOS_API_KEY
+#   HARNESS_STANDARD_PASSWORD   HARNESS_STANDARD_TOTP_SEED
+#   HARNESS_ADMIN_PASSWORD      HARNESS_ADMIN_TOTP_SEED
+# Package index (air-gapped): set UV_DEFAULT_INDEX (e.g. https://pypi.internal/simple)
+# as a group-level CI/CD variable. See README "Air-gapped installs".
+
+stages: [reset, deploy, health, smoke, regression, collect]
+
+variables:
+  HARNESS_ENV_FILE: env/virtual.yaml
+  HARNESS_REQUIRE_KIT: "true"   # an unreachable Grid fails the job instead of skipping
+  PYTEST_WORKERS: "4"           # match grid.expected_slots, not the runner's CPU count
+  SE_OFFLINE: "true"            # Selenium Manager must never download anything
+  UV_FROZEN: "1"                # install exactly uv.lock, never re-resolve
+  UV_PYTHON_DOWNLOADS: "never"  # use the runner's Python 3.12
+  UV_CACHE_DIR: .uv-cache
+
+default:
+  tags: [harness]
+  before_script:
+    - uv sync --frozen
+  cache:
+    key:
+      files: [uv.lock]
+    paths: [.uv-cache/]
+
+# Everything that touches the kit holds the lock so pipelines don't trample each other.
+.kit:
+  resource_group: virtual-kit
+
+.pytest-reports:
+  artifacts:
+    when: always
+    expire_in: 2 weeks
+    paths:
+      - reports/
+    reports:
+      junit: reports/junit-*.xml
+
+# Fast, kit-free gate: lint, types, and the harness's own unit tests.
+static-checks:
+  stage: .pre
+  extends: .pytest-reports
+  script:
+    - uv run ruff check .
+    - uv run ruff format --check .
+    - uv run mypy
+    - uv run pytest -m unit --junitxml=reports/junit-unit.xml
+
+reset-kit:
+  stage: reset
+  extends: .kit
+  before_script: []
+  script:
+    # TODO: revert the vCenter VMs (KVM host, VyOS, IdP, app VMs, Grid nodes) to
+    # their known-good snapshots, e.g. with govc snapshot.revert.
+    - echo "reset-kit is a placeholder - no snapshot revert performed"
+
+deploy:
+  stage: deploy
+  extends: .kit
+  before_script: []
+  script:
+    # TODO: deploy the build under test onto the kit.
+    - echo "deploy is a placeholder - nothing deployed"
+
+health:
+  stage: health
+  extends: .kit
+  script:
+    - uv run python ci/check_grid.py --env="$HARNESS_ENV_FILE"
+    - uv run python ci/wait_healthy.py --env="$HARNESS_ENV_FILE"
+
+smoke:
+  stage: smoke
+  extends: [.kit, .pytest-reports]
+  script:
+    - >
+      uv run pytest --env="$HARNESS_ENV_FILE" --require-kit
+      -m smoke -n "$PYTEST_WORKERS"
+      --junitxml=reports/junit-smoke.xml
+      --alluredir=reports/allure-results
+
+regression:
+  stage: regression
+  extends: [.kit, .pytest-reports]
+  script:
+    - >
+      uv run pytest --env="$HARNESS_ENV_FILE" --require-kit
+      -m regression -n "$PYTEST_WORKERS"
+      --junitxml=reports/junit-regression.xml
+      --alluredir=reports/allure-results
+
+# Gather Allure results from every test job (even after failures) into one artifact.
+collect:
+  stage: collect
+  when: always
+  dependencies: [smoke, regression]
+  before_script: []
+  script:
+    - mkdir -p reports/allure-results
+    - echo "Allure result files - $(ls reports/allure-results | wc -l)"
+    - |
+      if command -v allure >/dev/null 2>&1; then
+        allure generate reports/allure-results --output reports/allure-report --clean
+      else
+        echo "allure CLI not on runner; publishing raw results only"
+      fi
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - reports/

@@ -1,0 +1,33 @@
+# All hooks are local and run the pinned tools from the uv environment, so
+# pre-commit never clones hook repositories from the internet (air-gap safe).
+# Install with:  uv run pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy (strict)
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: env-files
+        name: env files identical and secret-free
+        entry: uv run pytest -q -m unit tests/unit/test_env_files.py
+        language: system
+        files: ^(env/.*\.yaml|src/harness/config\.py)$
+        pass_filenames: false
+      - id: check-yaml
+        name: yaml syntax
+        entry: uv run python -c "import sys, yaml; [yaml.safe_load(open(f)) for f in sys.argv[1:]]"
+        language: system
+        types: [yaml]
