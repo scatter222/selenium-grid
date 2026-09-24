@@ -38,6 +38,7 @@ tests/
   regression/app_one/   per-app regression tests
   unit/                 offline tests of the harness itself (env files, layering rules)
 ci/                     wait_healthy.py, check_grid.py (thin CLIs over harness.health)
+infra/                  Selenium Grid install: hub + nodes on RHEL-family VMs (systemd, offline)
 ```
 
 ### Layering rules and how they're enforced
@@ -49,6 +50,13 @@ ci/                     wait_healthy.py, check_grid.py (thin CLIs over harness.h
 | 3. Only `driver.py` and `waits.py` import selenium | ruff `TID251` (banned-api) + `test_architecture.py` |
 | 4. No `time.sleep()` anywhere | ruff `TID251` + `test_architecture.py` |
 
+## Setting up the Grid
+
+The harness is a Grid **client**: it doesn't start browsers or the Grid. To build
+the Grid (a hub on a dual-homed VM, a node on each laptop-image VM, fully offline),
+follow **[infra/README.md](infra/README.md)**. It covers the port matrix, the
+install scripts, `infra/verify.sh`, IdP test users, and a single-VM dev setup.
+
 ## Setup
 
 Requires Python 3.12 and [uv](https://docs.astral.sh/uv/).
@@ -56,7 +64,7 @@ Requires Python 3.12 and [uv](https://docs.astral.sh/uv/).
 ```sh
 uv sync                        # creates .venv from uv.lock (all versions pinned)
 uv run pre-commit install      # optional; hooks are local, no network needed
-make check                     # ruff + mypy --strict + offline unit tests
+make check                     # ruff, mypy --strict, shellcheck, offline unit tests
 ```
 
 ## Required environment variables
@@ -175,9 +183,8 @@ Nothing in the harness contacts the internet at runtime:
 
 * **Selenium Manager is disabled.** `SE_OFFLINE=true` is set by the pytest plugin and
   in CI. Sessions are always `webdriver.Remote` against the hub, so no local driver
-  is resolved. The Grid **nodes** must have `geckodriver` and Firefox pre-installed
-  on `PATH`. Start nodes with Selenium Manager off (the Grid 4 default,
-  `--selenium-manager false`) and `SE_OFFLINE=true`.
+  is resolved. The Grid nodes installed by `infra/` use a pinned geckodriver with
+  `selenium-manager = false`, `detect-drivers = false` and `SE_OFFLINE=true`.
 * **Firefox call-home is off.** `harness.driver.AIRGAP_FIREFOX_PREFS` disables
   updates, safe-browsing list fetches, telemetry, captive-portal and connectivity
   probes, and OCSP.
@@ -231,10 +238,11 @@ connected machine, copy the wheelhouse across, then
    from harness.pages.components import DataTable
    from harness.waits import by_test_id
 
+
    class InvoicesPage(BasePage):
        """Invoice list."""
 
-       path = "/invoices"                          # relative to the app's base_url
+       path = "/invoices"  # relative to the app's base_url
        ready_locator = by_test_id("invoices-page")  # visible == page is ready
        SEARCH = by_test_id("invoice-search")
 

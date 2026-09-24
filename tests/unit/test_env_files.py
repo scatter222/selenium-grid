@@ -96,3 +96,11 @@ def test_missing_env_file_is_a_clear_error(tmp_path: Path) -> None:
     """Pointing --env at a missing file names the file."""
     with pytest.raises(ConfigError, match="not found"):
         load_settings(tmp_path / "nope.yaml")
+
+
+def test_vyos_key_not_required_when_vyos_check_disabled() -> None:
+    """Turning off checks.vyos drops the VyOS API key from the required secrets."""
+    settings = load_settings(ENV_DIR / "virtual.yaml")
+    assert "HARNESS_VYOS_API_KEY" in settings.secret_env_names()
+    off = settings.model_copy(update={"checks": settings.checks.model_copy(update={"vyos": False})})
+    assert "HARNESS_VYOS_API_KEY" not in off.secret_env_names()

@@ -9,3 +9,11 @@ reports/
 *.egg-info/
 dist/
 build/
+
+# Grid bundle: large binaries, built by infra/bundle.sh, never committed
+infra/artifacts/
+infra/rpms/
+dist/
+
+# Personal env files (e.g. a dev VM); still checked for identical keys when present
+env/local*.yaml

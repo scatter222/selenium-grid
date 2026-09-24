@@ -10,6 +10,8 @@ pytestmark = pytest.mark.smoke
 
 def test_every_app_responds(settings: Settings) -> None:
     """Each configured app returns 2xx/3xx on its health path."""
+    if not settings.checks.apps:
+        pytest.skip("checks.apps is false: the runner can't reach the apps directly")
     with make_client(settings) as client:
         results = check_apps(client, settings.apps)
 

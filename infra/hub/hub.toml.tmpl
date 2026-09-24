@@ -1,0 +1,26 @@
+# Selenium Grid hub. Rendered to /etc/selenium/hub.toml by infra/hub/install.sh.
+# The hub is dual-homed: the runner reaches it on the management network, the nodes
+# on the workstation network. It listens on all interfaces; firewalld limits each
+# port to the network that needs it.
+
+[server]
+port = @HUB_PORT@
+# No external-url: the BiDi websocket address clients get is built from each node's
+# grid-url (see node.toml.tmpl), not from anything set here.
+
+[events]
+publish = "tcp://*:@EVENT_BUS_PUBLISH_PORT@"
+subscribe = "tcp://*:@EVENT_BUS_SUBSCRIBE_PORT@"
+
+[distributor]
+# Fail a session request at once if no node could ever satisfy it (e.g. a typo in
+# browser.version), rather than waiting for session-request-timeout.
+reject-unsupported-caps = true
+
+[sessionqueue]
+# How long a test may wait for a free slot before its session request fails.
+session-request-timeout = 300
+session-retry-interval = 5
+
+[logging]
+log-level = "INFO"

@@ -30,6 +30,11 @@ tls:
 network:
   use_env_proxy: false      # runner reaches the kit directly on the management network
 
+checks:                     # readiness checks run FROM THE RUNNER; turn off what it can't reach
+  vyos: true                # (the Grid check always runs). See infra/README.md.
+  idp: true
+  apps: true
+
 idp:
   base_url: https://auth.virtual.kit.lab
   realm: harness

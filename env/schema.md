@@ -32,6 +32,9 @@ Rules:
 | `tls.verify` | bool | Verify TLS for runner→kit HTTP calls (health checks, hub). |
 | `tls.ca_bundle` | path / null | Internal CA bundle. `null` uses the system trust store. |
 | `network.use_env_proxy` | bool | Whether runner→kit traffic honours `HTTP(S)_PROXY`. Normally `false`. |
+| `checks.vyos` | bool | Run the VyOS API readiness check from the runner. When `false`, `vyos.api_key_env` isn't required. |
+| `checks.idp` | bool | Check the IdP health path from the runner. |
+| `checks.apps` | bool | Check each app's health path from the runner. Also gates `tests/smoke/test_health.py`. |
 | `idp.base_url` | URL | IdP (Keycloak-style) base URL as the *browser* sees it. |
 | `idp.realm` | str | Realm the test users live in. |
 | `idp.entry_app` | str | Key in `apps` whose URL starts the UI login flow. |
@@ -52,7 +55,7 @@ Rules:
 
 | Variable | Used for |
 |---|---|
-| `HARNESS_VYOS_API_KEY` | VyOS readiness check |
+| `HARNESS_VYOS_API_KEY` | VyOS readiness check (only while `checks.vyos: true`) |
 | `HARNESS_STANDARD_PASSWORD` | `standard` user password |
 | `HARNESS_STANDARD_TOTP_SEED` | `standard` user TOTP seed (base32) |
 | `HARNESS_ADMIN_PASSWORD` | `admin` user password |

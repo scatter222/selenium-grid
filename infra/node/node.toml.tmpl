@@ -1,0 +1,27 @@
+# Selenium Grid node on a laptop-image VM. Rendered to /etc/selenium/node.toml by
+# infra/node/install.sh.
+
+[server]
+port = @NODE_PORT@
+# Address the HUB uses to reach this node (workstation network).
+host = "@NODE_ADDRESS@"
+
+[node]
+# Hub as THIS VM reaches it (workstation network): registration and event bus.
+hub = "@HUB_URL@"
+# Hub as the RUNNER reaches it (management network). Grid builds the BiDi websocket
+# URL it hands to pytest from this; if it's wrong, console log capture silently fails.
+grid-url = "@GRID_URL@"
+# Air-gapped: never auto-detect or download drivers; use exactly the one below.
+detect-drivers = false
+selenium-manager = false
+max-sessions = @MAX_SESSIONS@
+override-max-sessions = true
+# Kill a session idle this long (seconds): frees the slot if a runner dies mid-test.
+session-timeout = 300
+
+[[node.driver-configuration]]
+display-name = "Firefox @FIREFOX_VERSION@"
+webdriver-executable = "@GECKODRIVER_PATH@"
+max-sessions = @MAX_SESSIONS@
+stereotype = '{"browserName": "firefox", "browserVersion": "@FIREFOX_VERSION@", "platformName": "linux"}'

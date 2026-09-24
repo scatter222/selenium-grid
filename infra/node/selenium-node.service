@@ -1,0 +1,26 @@
+[Unit]
+Description=Selenium Grid node (Firefox)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=selenium
+Group=selenium
+WorkingDirectory=/var/lib/selenium
+Environment=HOME=/var/lib/selenium
+Environment=SE_OFFLINE=true
+# A system service has no display, so Firefox always runs headless here. For a
+# visible browser, stop this service and use infra/node/run-foreground.sh from
+# the desktop session instead.
+Environment=MOZ_HEADLESS=1
+ExecStart=/usr/bin/java -Xmx512m -jar /opt/selenium/selenium-server.jar node --config /etc/selenium/node.toml
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

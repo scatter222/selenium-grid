@@ -117,3 +117,18 @@ def test_report_summary_lists_failures() -> None:
     assert not report.ok
     assert "NOT READY (1 failing)" in report.summary()
     assert "[FAIL] app:app_one" in report.summary()
+
+
+def test_disabled_checks_are_skipped_not_passed() -> None:
+    """A switched-off check shows as SKIP and never fails the report."""
+    from harness.health import skipped  # noqa: PLC0415
+
+    report = HealthReport(
+        (
+            CheckResult("grid", "http://hub", True, "ready"),
+            skipped("vyos", "https://v", "checks.vyos"),
+        )
+    )
+    assert report.ok
+    assert "[SKIP] vyos" in report.summary()
+    assert "disabled (checks.vyos=false)" in report.summary()

@@ -107,6 +107,19 @@ class NetworkConfig(_Strict):
     )
 
 
+class ChecksConfig(_Strict):
+    """Which readiness checks run from the runner.
+
+    Every check is an HTTP call from wherever pytest runs, normally the management
+    network. Turn one off if that network can't reach the target; the Grid check
+    always runs. See infra/README.md for how to find out what's reachable.
+    """
+
+    vyos: bool
+    idp: bool
+    apps: bool
+
+
 class IdpConfig(_Strict):
     """Keycloak-style OIDC identity provider."""
 
@@ -154,6 +167,7 @@ class Settings(_Strict):
     timeouts: TimeoutConfig
     tls: TlsConfig
     network: NetworkConfig
+    checks: ChecksConfig
     idp: IdpConfig
     vyos: VyosConfig
     apps: dict[str, AppConfig]
@@ -171,8 +185,11 @@ class Settings(_Strict):
         return self
 
     def secret_env_names(self) -> list[str]:
-        """Return every environment variable name this config expects to hold a secret."""
-        names = [self.vyos.api_key_env]
+        """Return every environment variable name this config expects to hold a secret.
+
+        The VyOS API key is only required while ``checks.vyos`` is enabled.
+        """
+        names = [self.vyos.api_key_env] if self.checks.vyos else []
         for user in self.users.values():
             names.append(user.password_env)
             if user.totp_seed_env is not None:

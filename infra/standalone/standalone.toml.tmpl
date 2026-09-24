@@ -1,0 +1,18 @@
+# All-in-one Grid for development on a single laptop-image VM: hub and node in one
+# process. Not for CI. Rendered by infra/standalone/run.sh.
+
+[server]
+port = @HUB_PORT@
+
+[node]
+detect-drivers = false
+selenium-manager = false
+max-sessions = @MAX_SESSIONS@
+override-max-sessions = true
+session-timeout = 300
+
+[[node.driver-configuration]]
+display-name = "Firefox @FIREFOX_VERSION@"
+webdriver-executable = "@GECKODRIVER_PATH@"
+max-sessions = @MAX_SESSIONS@
+stereotype = '{"browserName": "firefox", "browserVersion": "@FIREFOX_VERSION@", "platformName": "linux"}'

@@ -1,0 +1,22 @@
+[Unit]
+Description=Selenium Grid hub
+Documentation=file:///opt/selenium/README
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=selenium
+Group=selenium
+Environment=SE_OFFLINE=true
+ExecStart=/usr/bin/java -Xmx1g -jar /opt/selenium/selenium-server.jar hub --config /etc/selenium/hub.toml
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

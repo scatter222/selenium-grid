@@ -30,6 +30,7 @@ class CheckResult:
     ok: bool
     detail: str
     elapsed_s: float = 0.0
+    skipped: bool = False
 
 
 @dataclass(frozen=True)
@@ -40,23 +41,33 @@ class HealthReport:
 
     @property
     def ok(self) -> bool:
-        """True when every check passed."""
-        return all(r.ok for r in self.results)
+        """True when every check that ran passed."""
+        return not self.failures
 
     @property
     def failures(self) -> list[CheckResult]:
-        """The checks that failed."""
-        return [r for r in self.results if not r.ok]
+        """The checks that ran and failed."""
+        return [r for r in self.results if not r.ok and not r.skipped]
 
     def summary(self) -> str:
         """Return a fixed-width, one-line-per-check summary suitable for logs."""
         width = max((len(r.name) for r in self.results), default=4)
         lines = [
-            f"  [{'PASS' if r.ok else 'FAIL'}] {r.name:<{width}}  {r.target}  -- {r.detail}"
-            for r in self.results
+            f"  [{_label(r)}] {r.name:<{width}}  {r.target}  -- {r.detail}" for r in self.results
         ]
         verdict = "READY" if self.ok else f"NOT READY ({len(self.failures)} failing)"
         return f"Kit health: {verdict}\n" + "\n".join(lines)
+
+
+def _label(result: CheckResult) -> str:
+    if result.skipped:
+        return "SKIP"
+    return "PASS" if result.ok else "FAIL"
+
+
+def skipped(name: str, target: str, switch: str) -> CheckResult:
+    """A placeholder result for a check disabled in the env file's ``checks`` section."""
+    return CheckResult(name, target, ok=False, detail=f"disabled ({switch}=false)", skipped=True)
 
 
 def make_client(settings: Settings) -> httpx.Client:
@@ -183,16 +194,34 @@ def run_checks(
     with make_client(settings) as client:
         if include_grid:
             results.append(check_grid(client, str(settings.grid.hub_url)))
-        try:
-            api_key = resolve_secret(settings.vyos.api_key_env, environ)
-        except MissingSecretError as exc:
-            results.append(CheckResult("vyos", str(settings.vyos.api_url), False, str(exc)))
-        else:
-            results.append(check_vyos(client, str(settings.vyos.api_url), api_key))
+        results.append(_vyos(client, settings, environ))
         idp_url = _join(str(settings.idp.base_url), settings.idp.health_path)
-        results.append(check_http(client, "idp", idp_url))
-        results.extend(check_apps(client, settings.apps))
+        if settings.checks.idp:
+            results.append(check_http(client, "idp", idp_url))
+        else:
+            results.append(skipped("idp", idp_url, "checks.idp"))
+        if settings.checks.apps:
+            results.extend(check_apps(client, settings.apps))
+        else:
+            results.extend(
+                skipped(f"app:{name}", _join(str(app.base_url), app.health_path), "checks.apps")
+                for name, app in sorted(settings.apps.items())
+            )
     return HealthReport(tuple(results))
+
+
+def _vyos(
+    client: httpx.Client, settings: Settings, environ: Mapping[str, str] | None
+) -> CheckResult:
+    """Run the VyOS check if enabled; a missing API key is reported as a failure, not raised."""
+    api_url = str(settings.vyos.api_url)
+    if not settings.checks.vyos:
+        return skipped("vyos", api_url, "checks.vyos")
+    try:
+        api_key = resolve_secret(settings.vyos.api_key_env, environ)
+    except MissingSecretError as exc:
+        return CheckResult("vyos", api_url, False, str(exc))
+    return check_vyos(client, api_url, api_key)
 
 
 def wait_until_healthy(
